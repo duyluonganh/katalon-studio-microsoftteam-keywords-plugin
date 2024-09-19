@@ -37,5 +37,4 @@ groovydoc {
 }
 
 dependencies {
-  compile('com.andrewthom:microsoft-teams-java-api:0.1')
 }

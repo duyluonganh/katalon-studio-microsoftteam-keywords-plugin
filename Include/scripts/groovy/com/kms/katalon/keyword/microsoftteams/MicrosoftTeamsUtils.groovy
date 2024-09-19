@@ -3,9 +3,12 @@ package com.kms.katalon.keyword.microsoftteams
 import java.util.concurrent.atomic.AtomicInteger
 
 import org.apache.commons.lang3.StringUtils
+import org.apache.http.client.methods.HttpPost
+import org.apache.http.entity.StringEntity
+import org.apache.http.impl.client.CloseableHttpClient
+import org.apache.http.impl.client.HttpClients
+import org.apache.http.util.EntityUtils
 
-import com.andrewthom.microsoft.teams.api.MicrosoftTeams
-import com.andrewthom.microsoft.teams.api.Webhook
 import com.kms.katalon.core.configuration.RunConfiguration
 import com.kms.katalon.core.context.TestCaseContext
 import com.kms.katalon.core.context.TestSuiteContext
@@ -18,7 +21,7 @@ public class MicrosoftTeamsUtils {
 	static BundleSettingStore bundleSetting
 	static String URL
 	static boolean enabled = false
-	
+
 	Map<String, AtomicInteger> stats = new HashMap<String, AtomicInteger>()
 
 	static {
@@ -26,8 +29,9 @@ public class MicrosoftTeamsUtils {
 			bundleSetting = new BundleSettingStore(RunConfiguration.getProjectDir(), 'MicrosoftTeamsIncomingWebhook', true)
 			URL = bundleSetting.getString('MicrosoftTeamsIncomingWebhook', '')
 			if (StringUtils.isBlank(URL)) {
-				KeywordUtil.logInfo("Microsoft Teams Incoming Webhook is empty.")
+				KeywordUtil.markWarning("[MS Team] Microsoft Teams Webhook URL is empty.")
 			} else {
+				KeywordUtil.markWarning("[MS Team] Microsoft Teams integration is enabled")
 				enabled = true
 			}
 		} catch (Exception e) {
@@ -63,12 +67,50 @@ public class MicrosoftTeamsUtils {
 			for (Map.Entry<String, AtomicInteger> entry : stats.entrySet()) {
 				message =  message + "\n\n${entry.getKey()}: ${entry.getValue()}"
 			}
-			MicrosoftTeams.forUrl(new Webhook() {
-						@Override
-						public String getUrl() {
-							return URL
-						}
-					}).sendMessage(message)
+			sendMessageToTeamsChannel(URL, message)
+		}
+	}
+
+	def sendMessageToTeamsChannel(String webhookUrl, String message) {
+		CloseableHttpClient httpClient = HttpClients.createDefault()
+		try {
+			HttpPost request = new HttpPost(webhookUrl)
+			String body = """{
+       "type":"message",
+       "attachments":[
+          {
+             "contentType":"application/vnd.microsoft.card.adaptive",
+             "contentUrl":null,
+             "content":{
+                "\$schema":"http://adaptivecards.io/schemas/adaptive-card.json",
+                "type":"AdaptiveCard",
+                "version":"1.2",
+                "body":[
+                    {
+                    "type": "TextBlock",
+                    "text": "${message}",
+					"wrap": true
+                    }
+                ]
+             }
+          }
+       ]
+    }"""
+			StringEntity params = new StringEntity(body, "UTF-8")
+			request.addHeader("Content-Type", "application/json")
+			request.setEntity(params)
+
+			def response = httpClient.execute(request)
+			def responseBody = EntityUtils.toString(response.getEntity())
+
+			if (response.getStatusLine().getStatusCode() >= 200 && response.getStatusLine().getStatusCode() <= 299) {
+				KeywordUtil.logInfo("[MS Team] Message sent successfully!")
+			} else {
+				KeywordUtil.markWarning("[MS Team] Failed to send message. Status: ${response.getStatusLine().getStatusCode()}")
+				KeywordUtil.markWarning("[MS Team] Response: ${responseBody}")
+			}
+		} finally {
+			httpClient.close()
 		}
 	}
 }
