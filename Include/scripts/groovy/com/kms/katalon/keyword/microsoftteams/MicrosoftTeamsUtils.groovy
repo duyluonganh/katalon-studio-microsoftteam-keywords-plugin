@@ -31,7 +31,7 @@ public class MicrosoftTeamsUtils {
 			if (StringUtils.isBlank(URL)) {
 				KeywordUtil.markWarning("[MS Team] Microsoft Teams Webhook URL is empty.")
 			} else {
-				KeywordUtil.markWarning("[MS Team] Microsoft Teams integration is enabled")
+				KeywordUtil.logInfo("[MS Team] Microsoft Teams integration is enabled")
 				enabled = true
 			}
 		} catch (Exception e) {
